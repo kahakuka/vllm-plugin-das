@@ -93,6 +93,7 @@ class VLConfigGateTests(unittest.TestCase):
         scope = functions(
             "vllm_hcu/patch/platform/core_fix/patch_vllm_config.py",
             {"_require_hcu_pcp_attribute", "_require_hyv4_pcp_mtp_contract",
+             "_is_hyv4_vl_mooncake_store",
              "_require_hyv4_vl_pcp_contract", "_require_mrv2_pcp_contract",
              "_validate_hcu_pcp_scope"},
             {"os": os, "PatchCompatibilityError": RuntimeError,
@@ -101,6 +102,31 @@ class VLConfigGateTests(unittest.TestCase):
 
     def test_vl_static_r0_producer_is_admitted(self):
         self.assertIs(self.validate(config()), True)
+
+    def test_vl_mooncake_store_pcp16_is_admitted(self):
+        current = config()
+        current.cache_config.cache_dtype = "fp8_e4m3"
+        current.kv_transfer_config = NS(
+            kv_connector="MooncakeStoreConnector", kv_role="kv_both",
+            kv_connector_module_path=None,
+        )
+        self.assertIs(self.validate(current), True)
+
+    def test_vl_mooncake_store_pcp16_native_mtp_is_admitted(self):
+        current = config()
+        current.model_config.model = "native-vl"
+        current.model_config.hf_config.num_nextn_predict_layers = 1
+        current.cache_config.cache_dtype = "fp8_e4m3"
+        current.speculative_config = NS(
+            method="mtp", num_speculative_tokens=3,
+            draft_model_config=NS(
+                architectures=["HYV4MTPModel"], model="native-vl",
+                hf_config=NS(num_nextn_predict_layers=1, n_predict=1)))
+        current.kv_transfer_config = NS(
+            kv_connector="MooncakeStoreConnector", kv_role="kv_both",
+            kv_connector_module_path=None,
+        )
+        self.assertIs(self.validate(current), True)
 
     def test_standalone_vl_pcp16_native_mtp(self):
         current = config()
